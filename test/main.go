@@ -1,5 +1,5 @@
-// Command go-ratelimit-example runs an HTTP server demonstrating
-// github.com/Lapius7/go-ratelimit: a permissive token bucket endpoint, a
+// Command go-rataliy_lib-example runs an HTTP server demonstrating
+// github.com/Lapius7/go-rataliy_lib: a permissive token bucket endpoint, a
 // strict fixed window endpoint, and a Router dispatching between them.
 package main
 
@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Lapius7/go-ratelimit"
+	"github.com/Lapius7/go-rataliy_lib"
 )
 
 func main() {

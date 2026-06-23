@@ -1,10 +1,10 @@
-# go-ratelimit
+# go-rataliy_lib
 
 HTTP rate limiting for Go, with a choice of algorithms and a drop-in
 `net/http` middleware. Zero dependencies in the core package.
 
 ```go
-import "github.com/Lapius7/go-ratelimit"
+import "github.com/Lapius7/go-rataliy_lib"
 ```
 
 A runnable example lives in [`test/`](test/) — clone the repo and `go run`
@@ -14,7 +14,7 @@ it to see rate limiting, response headers, and per-route rules in action.
 
 `golang.org/x/time/rate` gives you a token bucket primitive, but you still
 have to wire it into your HTTP handlers, pick a key strategy, and handle the
-429 response yourself. go-ratelimit does that part, and lets you choose
+429 response yourself. go-rataliy_lib does that part, and lets you choose
 between three algorithms depending on the trade-off you want.
 
 ## Usage
@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Lapius7/go-ratelimit"
+	"github.com/Lapius7/go-rataliy_lib"
 )
 
 func main() {
@@ -130,8 +130,8 @@ For a limit that's shared across instances, use
 
 ```go
 import (
-	"github.com/Lapius7/go-ratelimit"
-	"github.com/Lapius7/go-ratelimit/redisstore"
+	"github.com/Lapius7/go-rataliy_lib"
+	"github.com/Lapius7/go-rataliy_lib/redisstore"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -146,7 +146,7 @@ limiter := ratelimit.New(ratelimit.TokenBucket, ratelimit.Config{
 ```
 
 `redisstore` is a separate Go module specifically so the core
-`go-ratelimit` package keeps zero dependencies — you only pull in
+`go-rataliy_lib` package keeps zero dependencies — you only pull in
 `go-redis` if you actually need distributed limits.
 
 ## Known limitations

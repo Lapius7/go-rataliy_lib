@@ -1,4 +1,4 @@
-/go-ratelimit
-/test/go-ratelimit-example
+/go-rataliy_lib
+/test/go-rataliy_lib-example
 *.test
 *.out

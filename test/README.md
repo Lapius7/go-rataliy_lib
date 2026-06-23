@@ -1,13 +1,13 @@
-# go-ratelimit example
+# go-rataliy_lib example
 
-A runnable demo of [go-ratelimit](https://github.com/Lapius7/go-ratelimit):
+A runnable demo of [go-rataliy_lib](https://github.com/Lapius7/go-rataliy_lib):
 two endpoints with different limits, dispatched through a `Router`.
 
 ## Run it
 
 ```bash
-git clone https://github.com/Lapius7/go-ratelimit
-cd go-ratelimit/test
+git clone https://github.com/Lapius7/go-rataliy_lib
+cd go-rataliy_lib/test
 go run .
 ```
 
@@ -39,4 +39,4 @@ request also gets a `Retry-After` header telling you how long to wait.
 
 `go.mod` in this directory has a `replace` pointing at the parent
 directory, so `go run .` always uses whatever is in your local
-`go-ratelimit` checkout — useful if you're modifying the library itself.
+`go-rataliy_lib` checkout — useful if you're modifying the library itself.

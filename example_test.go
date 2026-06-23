@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"github.com/Lapius7/go-ratelimit"
+	"github.com/Lapius7/go-rataliy_lib"
 )
 
 // Example demonstrates wrapping a handler with a 60-requests-per-minute
