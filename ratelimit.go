@@ -62,12 +62,16 @@ type Result struct {
 
 type algorithm interface {
 	Allow(key string, cfg Config, store Store) Result
+	// Inspect decodes a previously stored state blob into a Result as of
+	// now, without consuming a request or writing back to the store.
+	Inspect(state []byte, cfg Config, now time.Time) Result
 }
 
 // Limiter enforces a Config's rate limit using a chosen Algorithm.
 type Limiter struct {
-	cfg  Config
-	algo algorithm
+	cfg     Config
+	algo    algorithm
+	algName Algorithm
 }
 
 // New creates a Limiter for the given algorithm and configuration.
@@ -99,10 +103,11 @@ func New(algo Algorithm, cfg Config) *Limiter {
 	case FixedWindow:
 		impl = fixedWindowAlgo{}
 	default:
+		algo = TokenBucket
 		impl = tokenBucketAlgo{}
 	}
 
-	return &Limiter{cfg: cfg, algo: impl}
+	return &Limiter{cfg: cfg, algo: impl, algName: algo}
 }
 
 // Allow reports whether a request identified by key is allowed under the
@@ -110,6 +115,15 @@ func New(algo Algorithm, cfg Config) *Limiter {
 func (l *Limiter) Allow(key string) Result {
 	return l.algo.Allow(key, l.cfg, l.cfg.Store)
 }
+
+// Algorithm reports which Algorithm this limiter was constructed with.
+func (l *Limiter) Algorithm() Algorithm {
+	return l.algName
+}
+
+// Rate and Per report the configured limit, e.g. for display purposes.
+func (l *Limiter) Rate() int          { return l.cfg.Rate }
+func (l *Limiter) Per() time.Duration { return l.cfg.Per }
 
 // Close releases resources held by the limiter's Store, such as the
 // in-memory store's background cleanup goroutine. It is a no-op if the
@@ -119,4 +133,34 @@ func (l *Limiter) Close() error {
 		return c.Close()
 	}
 	return nil
+}
+
+// KeySnapshot is the current rate limit state for one key, as reported by
+// Limiter.Snapshot.
+type KeySnapshot struct {
+	Key    string
+	Result Result
+}
+
+// Snapshot reports the current Result for every key this limiter is
+// tracking, for read-only displays such as Dashboard. The second return
+// value is false if the limiter's Store does not support enumerating its
+// keys (the default in-memory store does; custom stores such as
+// redisstore generally don't).
+func (l *Limiter) Snapshot() ([]KeySnapshot, bool) {
+	enum, ok := l.cfg.Store.(keyEnumerator)
+	if !ok {
+		return nil, false
+	}
+
+	now := time.Now()
+	states := enum.snapshot()
+	out := make([]KeySnapshot, 0, len(states))
+	for _, ks := range states {
+		out = append(out, KeySnapshot{
+			Key:    ks.Key,
+			Result: l.algo.Inspect(ks.State, l.cfg, now),
+		})
+	}
+	return out, true
 }

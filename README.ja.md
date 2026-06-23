@@ -15,8 +15,8 @@ import "github.com/Lapius7/go-rataliy_lib"
 ```
 
 実際に動かせるサンプルが [`test/`](test/) にあります。リポジトリをcloneして
-`go run` すれば、レート制限・レスポンスヘッダー・ルートごとのルールをその場で
-確認できます。
+`go run` すれば、レート制限・レスポンスヘッダー・ルートごとのルール・
+ライブダッシュボードをその場で確認できます。
 
 ## 目次
 
@@ -26,6 +26,7 @@ import "github.com/Lapius7/go-rataliy_lib"
 - [ルートごとに違う制限をかける](#ルートごとに違う制限をかける)
 - [ミドルウェアを使わずLimiterを直接使う](#ミドルウェアを使わずlimiterを直接使う)
 - [後始末（クリーンシャットダウン）](#後始末クリーンシャットダウン)
+- [ダッシュボード](#ダッシュボード)
 - [アルゴリズム](#アルゴリズム)
 - [ストレージ](#ストレージ)
 - [既知の制約](#既知の制約)
@@ -132,6 +133,37 @@ if !result.Allowed {
 goroutineを動かしています。使い終わったLimiterに対して `Limiter.Close()`
 を呼ぶ（例: グレースフルシャットダウン時）と、そのgoroutineを停止できます。
 
+## ダッシュボード
+
+`Dashboard` は、各Limiterが追跡している全キーが**今この瞬間**どういう状態に
+あるか（残り回数とリセット時刻）を、キー単位・Limiter単位で表示する、
+自動更新のライブビューです。過去のリクエスト履歴やアクセスログではなく、
+現在の状態を表示します。
+
+```go
+hello := ratelimit.New(ratelimit.TokenBucket, ratelimit.Config{Rate: 60, Per: time.Minute})
+strict := ratelimit.New(ratelimit.FixedWindow, ratelimit.Config{Rate: 5, Per: time.Minute})
+
+dashboard := ratelimit.NewDashboard(map[string]*ratelimit.Limiter{
+	"hello":  hello,
+	"strict": strict,
+})
+
+// アプリ本体のリスナーとは別の、独自のポートで動かす
+go dashboard.ListenAndServe(":9090")
+```
+
+`http://localhost:9090/` を開けばHTMLビュー、`GET /api/snapshot` で同じ
+データをJSONで取得できます（付属のページの代わりに、自分の監視システムに
+組み込みたい場合に便利です）。専用ポートを持たせず既存のサーバーに組み込み
+たい場合は `dashboard.Handler()` を使ってください。
+
+ダッシュボードがキー一覧を表示できるのは、`Store`が列挙に対応している
+Limiterだけです。デフォルトのインメモリストアは対応していますが、
+`redisstore`は対応していません（[既知の制約](#既知の制約)参照）。非対応の
+場合は空のテーブルではなく「このLimiterのストアはキー一覧表示に対応して
+いません」と表示されます。
+
 ## アルゴリズム
 
 | アルゴリズム      | 挙動                                                                      | キーあたりのメモリ |
@@ -223,6 +255,13 @@ limiter := ratelimit.New(ratelimit.TokenBucket, ratelimit.Config{
   何も無い）ことを前提にしています。バイト列を切り詰めたり、再エンコード
   したりして変更する`Store`は、panicや不正な制限動作を引き起こします。
   `state`引数は解釈・再整形せず、そのまま保存・返却してください。
+- **ダッシュボードには認証がありません。** `Dashboard.ListenAndServe`は
+  アクセス制御を一切持たないHTTPサーバーを起動します。そのポートに到達
+  できる人は誰でも、追跡中の全キー（クライアントIPやAPIキーヘッダーの値
+  など）と各キーの現在のレート制限状態を見ることができます。信頼できない
+  ネットワークにそのポートを公開しないでください。チーム外から到達可能に
+  なり得る場合は、自前の認証やリバースプロキシの裏に置くか、localhost
+  または内部インターフェースのみにバインドしてください。
 
 ## FAQ
 

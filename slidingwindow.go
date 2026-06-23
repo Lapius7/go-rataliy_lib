@@ -23,6 +23,29 @@ func decodeSlidingWindow(b []byte) (prevCount, currCount uint32, windowStart tim
 	return prevCount, currCount, windowStart
 }
 
+// rollSlidingWindow advances (prevCount, currCount, windowStart) to be
+// current as of now, without consuming any request. It performs no I/O,
+// so both Allow and Inspect can share it.
+func rollSlidingWindow(prevCount, currCount uint32, windowStart, now time.Time, per time.Duration) (uint32, uint32, time.Time) {
+	elapsed := now.Sub(windowStart)
+	if elapsed >= 2*per {
+		return 0, 0, now
+	}
+	if elapsed >= per {
+		return currCount, 0, windowStart.Add(per)
+	}
+	return prevCount, currCount, windowStart
+}
+
+func slidingWindowEstimate(prevCount, currCount uint32, windowStart, now time.Time, per time.Duration) float64 {
+	elapsedInCurrent := now.Sub(windowStart)
+	weight := 1 - float64(elapsedInCurrent)/float64(per)
+	if weight < 0 {
+		weight = 0
+	}
+	return float64(currCount) + weight*float64(prevCount)
+}
+
 // Allow uses the sliding window counter approximation: the estimated count
 // is the current window's count plus a fraction of the previous window's
 // count, weighted by how much of the previous window still overlaps the
@@ -35,31 +58,18 @@ func (slidingWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 	windowStart := now
 
 	if raw, ok := store.Get(key); ok {
-		prevCount, currCount, windowStart = decodeSlidingWindow(raw)
-		elapsed := now.Sub(windowStart)
-		if elapsed >= 2*per {
-			prevCount, currCount = 0, 0
-			windowStart = now
-		} else if elapsed >= per {
-			prevCount = currCount
-			currCount = 0
-			windowStart = windowStart.Add(per)
-		}
+		storedPrev, storedCurr, storedStart := decodeSlidingWindow(raw)
+		prevCount, currCount, windowStart = rollSlidingWindow(storedPrev, storedCurr, storedStart, now, per)
 	}
 
-	elapsedInCurrent := now.Sub(windowStart)
-	weight := 1 - float64(elapsedInCurrent)/float64(per)
-	if weight < 0 {
-		weight = 0
-	}
-	estimated := float64(currCount) + weight*float64(prevCount)
+	estimated := slidingWindowEstimate(prevCount, currCount, windowStart, now, per)
 
 	allowed := estimated < float64(cfg.Rate)
 	var retryAfter time.Duration
 	if allowed {
 		currCount++
 	} else {
-		retryAfter = per - elapsedInCurrent
+		retryAfter = per - now.Sub(windowStart)
 	}
 
 	store.Set(key, encodeSlidingWindow(prevCount, currCount, windowStart), 2*per)
@@ -74,5 +84,26 @@ func (slidingWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 		Remaining:  remaining,
 		RetryAfter: retryAfter,
 		ResetAt:    windowStart.Add(per),
+	}
+}
+
+// Inspect reports the current state for key's stored blob without
+// consuming a request or writing back to the store.
+func (slidingWindowAlgo) Inspect(state []byte, cfg Config, now time.Time) Result {
+	per := cfg.Per
+	storedPrev, storedCurr, storedStart := decodeSlidingWindow(state)
+	prevCount, currCount, windowStart := rollSlidingWindow(storedPrev, storedCurr, storedStart, now, per)
+
+	estimated := slidingWindowEstimate(prevCount, currCount, windowStart, now, per)
+
+	remaining := cfg.Rate - int(estimated)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return Result{
+		Allowed:   estimated < float64(cfg.Rate),
+		Remaining: remaining,
+		ResetAt:   windowStart.Add(per),
 	}
 }

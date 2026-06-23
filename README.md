@@ -15,7 +15,8 @@ import "github.com/Lapius7/go-rataliy_lib"
 ```
 
 A runnable example lives in [`test/`](test/) — clone the repo and `go run`
-it to see rate limiting, response headers, and per-route rules in action.
+it to see rate limiting, response headers, per-route rules, and the live
+dashboard in action.
 
 ## Contents
 
@@ -25,6 +26,7 @@ it to see rate limiting, response headers, and per-route rules in action.
 - [Different limits for different routes](#different-limits-for-different-routes)
 - [Using the limiter directly, without the middleware](#using-the-limiter-directly-without-the-middleware)
 - [Shutting down cleanly](#shutting-down-cleanly)
+- [Dashboard](#dashboard)
 - [Algorithms](#algorithms)
 - [Storage](#storage)
 - [Known limitations](#known-limitations)
@@ -131,6 +133,37 @@ The default in-memory store runs a background goroutine to sweep expired
 keys. Call `Limiter.Close()` when you're done with a limiter (e.g. during
 graceful shutdown) to stop it.
 
+## Dashboard
+
+`Dashboard` serves a live, auto-refreshing view of what every key your
+limiters are tracking looks like *right now* — remaining budget and reset
+time, per key, per limiter. It shows current state, not a history of past
+requests or access logs.
+
+```go
+hello := ratelimit.New(ratelimit.TokenBucket, ratelimit.Config{Rate: 60, Per: time.Minute})
+strict := ratelimit.New(ratelimit.FixedWindow, ratelimit.Config{Rate: 5, Per: time.Minute})
+
+dashboard := ratelimit.NewDashboard(map[string]*ratelimit.Limiter{
+	"hello":  hello,
+	"strict": strict,
+})
+
+// Runs on its own port, separate from your application's listener.
+go dashboard.ListenAndServe(":9090")
+```
+
+Open `http://localhost:9090/` for the HTML view, or `GET /api/snapshot` for
+the same data as JSON (handy for your own monitoring instead of the bundled
+page). To mount it inside an existing server instead of giving it its own
+port, use `dashboard.Handler()`.
+
+The dashboard can only list keys for limiters whose `Store` supports
+enumeration — the default in-memory store does; `redisstore` does not (see
+[Known limitations](#known-limitations)), and shows up in the dashboard as
+"this limiter's store does not support listing keys" rather than an empty
+table.
+
 ## Algorithms
 
 | Algorithm       | Behavior                                                                 | Memory per key |
@@ -221,6 +254,13 @@ how the limiter behaves under conditions you should plan for.
   nothing). A `Store` that truncates, re-encodes, or otherwise mutates the
   bytes will cause a panic or incorrect limiting — don't interpret or
   reformat the `state` argument, just store and return it as-is.
+- **The dashboard has no authentication.** `Dashboard.ListenAndServe` binds
+  an HTTP server with no access control of any kind — anyone who can reach
+  the port can see every tracked key (e.g. client IPs or API key header
+  values) and the current rate limit state for each. Don't expose its port
+  to untrusted networks; put it behind your own auth/reverse proxy, or only
+  bind it to localhost / an internal interface, if it could otherwise be
+  reached by anyone outside your team.
 
 ## FAQ
 

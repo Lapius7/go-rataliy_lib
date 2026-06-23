@@ -18,6 +18,10 @@ This starts a server on `:18181` with:
 - `/hello` — token bucket, 5 requests/minute
 - `/strict` — fixed window, 2 requests/minute
 
+It also starts a live dashboard on `:18182` showing both limiters' current
+state. Open `http://localhost:18182/` in a browser, or `curl` the JSON
+behind it at `http://localhost:18182/api/snapshot`.
+
 ## Try it
 
 In another terminal:
@@ -36,6 +40,8 @@ for i in $(seq 1 3); do curl -s -o /dev/null -w "%{http_code}\n" http://localhos
 Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and
 `X-RateLimit-Reset` headers so you can watch the budget deplete. A denied
 request also gets a `Retry-After` header telling you how long to wait.
+Refresh the dashboard (or wait — it auto-refreshes every 2 seconds) to see
+the same numbers reflected there per key.
 
 ## Using your own checkout
 

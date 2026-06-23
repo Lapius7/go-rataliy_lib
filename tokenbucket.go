@@ -22,21 +22,33 @@ func decodeTokenBucket(b []byte) (tokens float64, lastRefill time.Time) {
 	return tokens, lastRefill
 }
 
+// refillTokenBucket computes the token count as of now, given a possibly
+// stale (tokens, lastRefill) pair. It performs no I/O and consumes nothing,
+// so both Allow and Inspect can share it.
+func refillTokenBucket(tokens float64, lastRefill, now time.Time, capacity, refillPerNano float64) float64 {
+	elapsed := now.Sub(lastRefill)
+	tokens += float64(elapsed.Nanoseconds()) * refillPerNano
+	if tokens > capacity {
+		tokens = capacity
+	}
+	return tokens
+}
+
+func tokenBucketResetAt(tokens, capacity, refillPerNano float64, now time.Time) time.Time {
+	missingForFull := capacity - tokens
+	return now.Add(time.Duration(missingForFull/refillPerNano) * time.Nanosecond)
+}
+
 func (tokenBucketAlgo) Allow(key string, cfg Config, store Store) Result {
 	capacity := float64(cfg.burst())
 	refillPerNano := float64(cfg.Rate) / float64(cfg.Per.Nanoseconds())
 
 	now := time.Now()
 	tokens := capacity
-	lastRefill := now
 
 	if raw, ok := store.Get(key); ok {
-		tokens, lastRefill = decodeTokenBucket(raw)
-		elapsed := now.Sub(lastRefill)
-		tokens += float64(elapsed.Nanoseconds()) * refillPerNano
-		if tokens > capacity {
-			tokens = capacity
-		}
+		storedTokens, storedRefill := decodeTokenBucket(raw)
+		tokens = refillTokenBucket(storedTokens, storedRefill, now, capacity, refillPerNano)
 	}
 
 	allowed := tokens >= 1
@@ -54,14 +66,33 @@ func (tokenBucketAlgo) Allow(key string, cfg Config, store Store) Result {
 	if remaining < 0 {
 		remaining = 0
 	}
-	// Time until the bucket is back to full capacity.
-	missingForFull := capacity - tokens
-	resetAt := now.Add(time.Duration(missingForFull/refillPerNano) * time.Nanosecond)
 
 	return Result{
 		Allowed:    allowed,
 		Remaining:  remaining,
 		RetryAfter: retryAfter,
-		ResetAt:    resetAt,
+		ResetAt:    tokenBucketResetAt(tokens, capacity, refillPerNano, now),
+	}
+}
+
+// Inspect reports the current state for key's stored blob without
+// consuming a token or writing back to the store. Used for read-only
+// displays such as Dashboard.
+func (tokenBucketAlgo) Inspect(state []byte, cfg Config, now time.Time) Result {
+	capacity := float64(cfg.burst())
+	refillPerNano := float64(cfg.Rate) / float64(cfg.Per.Nanoseconds())
+
+	storedTokens, storedRefill := decodeTokenBucket(state)
+	tokens := refillTokenBucket(storedTokens, storedRefill, now, capacity, refillPerNano)
+
+	remaining := int(tokens)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return Result{
+		Allowed:   tokens >= 1,
+		Remaining: remaining,
+		ResetAt:   tokenBucketResetAt(tokens, capacity, refillPerNano, now),
 	}
 }

@@ -18,6 +18,10 @@ go run .
 - `/hello` — token bucket、5リクエスト/分
 - `/strict` — fixed window、2リクエスト/分
 
+さらに `:18182` で、両方のLimiterの現在の状態を表示するライブダッシュボード
+が起動します。ブラウザで `http://localhost:18182/` を開く、または背後の
+JSONを `http://localhost:18182/api/snapshot` に`curl`してください。
+
 ## 試し方
 
 別のターミナルで実行します。
@@ -36,7 +40,8 @@ for i in $(seq 1 3); do curl -s -o /dev/null -w "%{http_code}\n" http://localhos
 すべてのレスポンスに `X-RateLimit-Limit` / `X-RateLimit-Remaining` /
 `X-RateLimit-Reset` ヘッダーが付くので、残り回数が減っていく様子を確認できます。
 拒否されたリクエストには `Retry-After` ヘッダーも付き、どれだけ待てばよいかが
-わかります。
+わかります。ダッシュボードを更新する（または2秒ごとの自動更新を待つ）と、
+キーごとに同じ数値が反映されているのを確認できます。
 
 ## 自分のチェックアウトを使う
 

@@ -1,6 +1,7 @@
 // Command go-rataliy_lib-example runs an HTTP server demonstrating
 // github.com/Lapius7/go-rataliy_lib: a permissive token bucket endpoint, a
-// strict fixed window endpoint, and a Router dispatching between them.
+// strict fixed window endpoint, a Router dispatching between them, and a
+// live dashboard of both limiters' current state on a separate port.
 package main
 
 import (
@@ -37,10 +38,21 @@ func main() {
 		fmt.Fprintln(w, "hello from the fixed window endpoint (2 req/min)")
 	})
 
+	dashboard := ratelimit.NewDashboard(map[string]*ratelimit.Limiter{
+		"hello":  hello,
+		"strict": strict,
+	})
+	dashboardAddr := ":18182"
+	go func() {
+		log.Printf("dashboard listening on %s", dashboardAddr)
+		log.Fatal(dashboard.ListenAndServe(dashboardAddr))
+	}()
+
 	addr := ":18181"
 	log.Printf("listening on %s", addr)
 	log.Println("try:")
 	log.Printf("  curl -i http://localhost%s/hello   # allows 5/min", addr)
 	log.Printf("  curl -i http://localhost%s/strict  # allows 2/min", addr)
+	log.Printf("  open http://localhost%s/           # live dashboard", dashboardAddr)
 	log.Fatal(http.ListenAndServe(addr, rt.Middleware(mux)))
 }

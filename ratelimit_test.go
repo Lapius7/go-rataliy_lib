@@ -138,3 +138,60 @@ func TestNew_RejectsInvalidConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestLimiter_Snapshot(t *testing.T) {
+	l := New(TokenBucket, Config{Rate: 5, Per: time.Minute})
+
+	snap, ok := l.Snapshot()
+	if !ok {
+		t.Fatal("expected the default in-memory store to support Snapshot")
+	}
+	if len(snap) != 0 {
+		t.Fatalf("expected no tracked keys before any request, got %d", len(snap))
+	}
+
+	l.Allow("alice")
+	l.Allow("alice")
+	l.Allow("bob")
+
+	snap, ok = l.Snapshot()
+	if !ok {
+		t.Fatal("expected Snapshot to still report ok=true")
+	}
+	if len(snap) != 2 {
+		t.Fatalf("expected 2 tracked keys, got %d", len(snap))
+	}
+
+	byKey := make(map[string]Result)
+	for _, ks := range snap {
+		byKey[ks.Key] = ks.Result
+	}
+
+	alice, ok := byKey["alice"]
+	if !ok {
+		t.Fatal("expected snapshot to include key 'alice'")
+	}
+	if alice.Remaining != 3 {
+		t.Fatalf("expected alice to have 3 remaining after 2 requests out of 5, got %d", alice.Remaining)
+	}
+
+	bob, ok := byKey["bob"]
+	if !ok {
+		t.Fatal("expected snapshot to include key 'bob'")
+	}
+	if bob.Remaining != 4 {
+		t.Fatalf("expected bob to have 4 remaining after 1 request out of 5, got %d", bob.Remaining)
+	}
+}
+
+func TestLimiter_SnapshotDoesNotConsumeRequests(t *testing.T) {
+	l := New(TokenBucket, Config{Rate: 1, Per: time.Minute})
+
+	// Inspecting via Snapshot must not itself consume the only token.
+	l.Snapshot()
+	l.Snapshot()
+
+	if res := l.Allow("k"); !res.Allowed {
+		t.Fatal("expected the first real Allow call to still succeed after repeated Snapshot calls")
+	}
+}

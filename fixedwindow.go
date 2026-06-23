@@ -21,6 +21,16 @@ func decodeFixedWindow(b []byte) (count uint32, windowStart time.Time) {
 	return count, windowStart
 }
 
+// rollFixedWindow resets count to zero and windowStart to now if the
+// window has elapsed. It performs no I/O, so both Allow and Inspect can
+// share it.
+func rollFixedWindow(count uint32, windowStart, now time.Time, per time.Duration) (uint32, time.Time) {
+	if now.Sub(windowStart) >= per {
+		return 0, now
+	}
+	return count, windowStart
+}
+
 func (fixedWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 	now := time.Now()
 	per := cfg.Per
@@ -29,11 +39,8 @@ func (fixedWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 	windowStart := now
 
 	if raw, ok := store.Get(key); ok {
-		count, windowStart = decodeFixedWindow(raw)
-		if now.Sub(windowStart) >= per {
-			count = 0
-			windowStart = now
-		}
+		storedCount, storedStart := decodeFixedWindow(raw)
+		count, windowStart = rollFixedWindow(storedCount, storedStart, now, per)
 	}
 
 	allowed := count < uint32(cfg.Rate)
@@ -56,5 +63,24 @@ func (fixedWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 		Remaining:  remaining,
 		RetryAfter: retryAfter,
 		ResetAt:    windowStart.Add(per),
+	}
+}
+
+// Inspect reports the current state for key's stored blob without
+// consuming a request or writing back to the store.
+func (fixedWindowAlgo) Inspect(state []byte, cfg Config, now time.Time) Result {
+	per := cfg.Per
+	storedCount, storedStart := decodeFixedWindow(state)
+	count, windowStart := rollFixedWindow(storedCount, storedStart, now, per)
+
+	remaining := cfg.Rate - int(count)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return Result{
+		Allowed:   count < uint32(cfg.Rate),
+		Remaining: remaining,
+		ResetAt:   windowStart.Add(per),
 	}
 }
