@@ -22,7 +22,7 @@ func decodeTokenBucket(b []byte) (tokens float64, lastRefill time.Time) {
 	return tokens, lastRefill
 }
 
-func (tokenBucketAlgo) Allow(key string, cfg Config, store Store) (bool, time.Duration) {
+func (tokenBucketAlgo) Allow(key string, cfg Config, store Store) Result {
 	capacity := float64(cfg.burst())
 	refillPerNano := float64(cfg.Rate) / float64(cfg.Per.Nanoseconds())
 
@@ -49,5 +49,19 @@ func (tokenBucketAlgo) Allow(key string, cfg Config, store Store) (bool, time.Du
 	}
 
 	store.Set(key, encodeTokenBucket(tokens, now), cfg.Per)
-	return allowed, retryAfter
+
+	remaining := int(tokens)
+	if remaining < 0 {
+		remaining = 0
+	}
+	// Time until the bucket is back to full capacity.
+	missingForFull := capacity - tokens
+	resetAt := now.Add(time.Duration(missingForFull/refillPerNano) * time.Nanosecond)
+
+	return Result{
+		Allowed:    allowed,
+		Remaining:  remaining,
+		RetryAfter: retryAfter,
+		ResetAt:    resetAt,
+	}
 }

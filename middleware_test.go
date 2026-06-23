@@ -22,6 +22,12 @@ func TestMiddleware_AllowsThenBlocks(t *testing.T) {
 	if rec1.Code != http.StatusOK {
 		t.Fatalf("expected first request to succeed, got %d", rec1.Code)
 	}
+	if rec1.Header().Get("X-RateLimit-Limit") != "1" {
+		t.Fatalf("expected X-RateLimit-Limit=1, got %q", rec1.Header().Get("X-RateLimit-Limit"))
+	}
+	if rec1.Header().Get("X-RateLimit-Remaining") != "0" {
+		t.Fatalf("expected X-RateLimit-Remaining=0 after consuming the only token, got %q", rec1.Header().Get("X-RateLimit-Remaining"))
+	}
 
 	rec2 := httptest.NewRecorder()
 	handler.ServeHTTP(rec2, req)

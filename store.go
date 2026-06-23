@@ -20,9 +20,10 @@ type entry struct {
 
 // memoryStore is a sync.Map-backed Store with periodic expiry sweeps.
 type memoryStore struct {
-	mu     sync.RWMutex
-	data   map[string]entry
-	stopCh chan struct{}
+	mu       sync.RWMutex
+	data     map[string]entry
+	stopCh   chan struct{}
+	closeOne sync.Once
 }
 
 func newMemoryStore() *memoryStore {
@@ -74,6 +75,10 @@ func (s *memoryStore) sweep() {
 	}
 }
 
-func (s *memoryStore) close() {
-	close(s.stopCh)
+// Close stops the background expiry sweep. Safe to call more than once.
+func (s *memoryStore) Close() error {
+	s.closeOne.Do(func() {
+		close(s.stopCh)
+	})
+	return nil
 }

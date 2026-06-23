@@ -1,3 +1,4 @@
 /go-ratelimit
+/test/go-ratelimit-example
 *.test
 *.out

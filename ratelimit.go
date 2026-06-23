@@ -31,6 +31,7 @@ type Config struct {
 	KeyFunc KeyFunc
 
 	// Store persists per-key state. Defaults to an in-memory store if nil.
+	// If the Store implements io.Closer, Limiter.Close calls it.
 	Store Store
 }
 
@@ -41,8 +42,26 @@ func (c Config) burst() int {
 	return c.Rate
 }
 
+// Result is the outcome of a rate limit check.
+type Result struct {
+	// Allowed reports whether the request is permitted.
+	Allowed bool
+
+	// Remaining is the number of additional requests allowed before the
+	// limit is hit, given the state at the time of this check.
+	Remaining int
+
+	// RetryAfter indicates how long to wait before retrying. It is zero
+	// when Allowed is true.
+	RetryAfter time.Duration
+
+	// ResetAt is when the limit window resets and Remaining returns to
+	// its maximum.
+	ResetAt time.Time
+}
+
 type algorithm interface {
-	Allow(key string, cfg Config, store Store) (bool, time.Duration)
+	Allow(key string, cfg Config, store Store) Result
 }
 
 // Limiter enforces a Config's rate limit using a chosen Algorithm.
@@ -74,8 +93,17 @@ func New(algo Algorithm, cfg Config) *Limiter {
 }
 
 // Allow reports whether a request identified by key is allowed under the
-// limiter's configuration. When denied, retryAfter indicates how long the
-// caller should wait before the next request is likely to succeed.
-func (l *Limiter) Allow(key string) (allowed bool, retryAfter time.Duration) {
+// limiter's configuration.
+func (l *Limiter) Allow(key string) Result {
 	return l.algo.Allow(key, l.cfg, l.cfg.Store)
+}
+
+// Close releases resources held by the limiter's Store, such as the
+// in-memory store's background cleanup goroutine. It is a no-op if the
+// configured Store does not need closing.
+func (l *Limiter) Close() error {
+	if c, ok := l.cfg.Store.(interface{ Close() error }); ok {
+		return c.Close()
+	}
+	return nil
 }

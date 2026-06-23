@@ -21,7 +21,7 @@ func decodeFixedWindow(b []byte) (count uint32, windowStart time.Time) {
 	return count, windowStart
 }
 
-func (fixedWindowAlgo) Allow(key string, cfg Config, store Store) (bool, time.Duration) {
+func (fixedWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 	now := time.Now()
 	per := cfg.Per
 
@@ -45,5 +45,16 @@ func (fixedWindowAlgo) Allow(key string, cfg Config, store Store) (bool, time.Du
 	}
 
 	store.Set(key, encodeFixedWindow(count, windowStart), per)
-	return allowed, retryAfter
+
+	remaining := cfg.Rate - int(count)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return Result{
+		Allowed:    allowed,
+		Remaining:  remaining,
+		RetryAfter: retryAfter,
+		ResetAt:    windowStart.Add(per),
+	}
 }

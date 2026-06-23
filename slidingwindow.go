@@ -27,7 +27,7 @@ func decodeSlidingWindow(b []byte) (prevCount, currCount uint32, windowStart tim
 // is the current window's count plus a fraction of the previous window's
 // count, weighted by how much of the previous window still overlaps the
 // sliding lookback period.
-func (slidingWindowAlgo) Allow(key string, cfg Config, store Store) (bool, time.Duration) {
+func (slidingWindowAlgo) Allow(key string, cfg Config, store Store) Result {
 	now := time.Now()
 	per := cfg.Per
 
@@ -63,5 +63,16 @@ func (slidingWindowAlgo) Allow(key string, cfg Config, store Store) (bool, time.
 	}
 
 	store.Set(key, encodeSlidingWindow(prevCount, currCount, windowStart), 2*per)
-	return allowed, retryAfter
+
+	remaining := cfg.Rate - int(estimated) - 1
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return Result{
+		Allowed:    allowed,
+		Remaining:  remaining,
+		RetryAfter: retryAfter,
+		ResetAt:    windowStart.Add(per),
+	}
 }

@@ -1,11 +1,14 @@
 # go-ratelimit
 
 HTTP rate limiting for Go, with a choice of algorithms and a drop-in
-`net/http` middleware. Zero dependencies.
+`net/http` middleware. Zero dependencies in the core package.
 
 ```go
 import "github.com/Lapius7/go-ratelimit"
 ```
+
+A runnable example lives in [`test/`](test/) — clone the repo and `go run`
+it to see rate limiting, response headers, and per-route rules in action.
 
 ## Why
 
@@ -35,14 +38,16 @@ func main() {
 		Per:     time.Minute,    // per minute
 		KeyFunc: ratelimit.ByIP, // limit per client IP
 	})
+	defer limiter.Close()
 
 	http.ListenAndServe(":8080", limiter.Middleware(mux))
 }
 ```
 
 Requests that exceed the limit receive `429 Too Many Requests` with a
-`Retry-After` header. Everything else passes through to your handler
-unchanged.
+`Retry-After` header. Every response — allowed or not — also carries
+`X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`
+headers so clients can see their budget.
 
 This is a standard `http.Handler` middleware, so it works the same way with
 any router or framework that accepts one (Chi, Gorilla, or by wrapping a
@@ -58,14 +63,38 @@ limiter := ratelimit.New(ratelimit.SlidingWindow, ratelimit.Config{
 })
 ```
 
+### Different limits for different routes
+
+`Router` dispatches to a different `Limiter` per pattern, using the same
+syntax as `http.ServeMux`. Unmatched requests pass through unlimited.
+
+```go
+strict := ratelimit.New(ratelimit.FixedWindow, ratelimit.Config{Rate: 2, Per: time.Minute})
+defer strict.Close()
+
+rt := ratelimit.NewRouter()
+rt.Handle("/admin/", strict)
+
+http.ListenAndServe(":8080", rt.Middleware(mux))
+```
+
 ### Using the limiter directly, without the middleware
 
 ```go
-allowed, retryAfter := limiter.Allow("some-key")
-if !allowed {
-	// wait retryAfter, or reject
+result := limiter.Allow("some-key")
+if !result.Allowed {
+	// wait result.RetryAfter, or reject
 }
 ```
+
+`Allow` returns a `Result` with `Allowed`, `Remaining`, `RetryAfter`, and
+`ResetAt` — the same data the middleware puts in response headers.
+
+### Shutting down cleanly
+
+The default in-memory store runs a background goroutine to sweep expired
+keys. Call `Limiter.Close()` when you're done with a limiter (e.g. during
+graceful shutdown) to stop it.
 
 ## Algorithms
 
@@ -89,10 +118,46 @@ type Store interface {
 }
 ```
 
-The default is an in-memory store (`sync.Map`-backed, with a background
-sweep of expired keys), which is enough for a single process. For rate
-limits shared across multiple instances, implement `Store` against Redis or
-another shared store and pass it via `Config.Store`.
+The default is an in-memory store (sweeps expired keys via a background
+goroutine — see "Shutting down cleanly" above), which is enough for a
+single process. **It does not coordinate across multiple instances**: if
+you run several copies of your service behind a load balancer, each one
+enforces the configured rate independently, so the effective limit scales
+with the number of instances.
+
+For a limit that's shared across instances, use
+[`redisstore`](redisstore/), a separate module backed by Redis:
+
+```go
+import (
+	"github.com/Lapius7/go-ratelimit"
+	"github.com/Lapius7/go-ratelimit/redisstore"
+	"github.com/redis/go-redis/v9"
+)
+
+client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+store := redisstore.New(client, "myapp:ratelimit:")
+
+limiter := ratelimit.New(ratelimit.TokenBucket, ratelimit.Config{
+	Rate:  60,
+	Per:   time.Minute,
+	Store: store,
+})
+```
+
+`redisstore` is a separate Go module specifically so the core
+`go-ratelimit` package keeps zero dependencies — you only pull in
+`go-redis` if you actually need distributed limits.
+
+## Known limitations
+
+- `ByIP` reads `RemoteAddr` directly. Behind a reverse proxy, that's the
+  proxy's address, not the client's — use `ByHeader("X-Forwarded-For")` (or
+  a custom `KeyFunc`) if you need the real client IP, and make sure you
+  trust that header in your deployment.
+- `SlidingWindow` is an approximation (weighted two-window counter), not an
+  exact sliding log. It's accurate enough for typical API limits but can
+  be off by a small margin near window boundaries.
 
 ## License
 
