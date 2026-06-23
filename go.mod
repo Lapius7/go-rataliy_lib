@@ -1,3 +1,3 @@
 module github.com/Lapius7/go-rataliy_lib
 
-go 1.26.4
+go 1.23

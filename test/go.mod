@@ -1,6 +1,6 @@
 module go-rataliy_lib-example
 
-go 1.26.4
+go 1.23
 
 require github.com/Lapius7/go-rataliy_lib v0.0.0
 

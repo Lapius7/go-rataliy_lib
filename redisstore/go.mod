@@ -1,6 +1,6 @@
 module github.com/Lapius7/go-rataliy_lib/redisstore
 
-go 1.26.4
+go 1.24
 
 require (
 	github.com/Lapius7/go-rataliy_lib v0.0.0
