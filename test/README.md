@@ -1,5 +1,7 @@
 # go-rataliy_lib example
 
+[日本語](README.ja.md)
+
 A runnable demo of [go-rataliy_lib](https://github.com/Lapius7/go-rataliy_lib):
 two endpoints with different limits, dispatched through a `Router`.
 

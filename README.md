@@ -1,5 +1,7 @@
 # go-rataliy_lib
 
+[日本語](README.ja.md)
+
 [![CI](https://github.com/Lapius7/go-rataliy_lib/actions/workflows/ci.yml/badge.svg)](https://github.com/Lapius7/go-rataliy_lib/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/Lapius7/go-rataliy_lib.svg)](https://pkg.go.dev/github.com/Lapius7/go-rataliy_lib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Lapius7/go-rataliy_lib)](https://goreportcard.com/report/github.com/Lapius7/go-rataliy_lib)
