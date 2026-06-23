@@ -71,7 +71,20 @@ type Limiter struct {
 }
 
 // New creates a Limiter for the given algorithm and configuration.
+// It panics if cfg.Rate or cfg.Per is not positive, since either would
+// make the limiter either reject everything or admit everything depending
+// on the algorithm and floating-point rounding.
 func New(algo Algorithm, cfg Config) *Limiter {
+	if cfg.Rate <= 0 {
+		panic("ratelimit: Config.Rate must be positive")
+	}
+	if cfg.Per <= 0 {
+		panic("ratelimit: Config.Per must be positive")
+	}
+	if cfg.Burst < 0 {
+		panic("ratelimit: Config.Burst must not be negative")
+	}
+
 	if cfg.KeyFunc == nil {
 		cfg.KeyFunc = ByIP
 	}

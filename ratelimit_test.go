@@ -115,3 +115,26 @@ func TestLimiter_Close(t *testing.T) {
 		t.Fatalf("expected second Close to succeed, got %v", err)
 	}
 }
+
+func TestNew_RejectsInvalidConfig(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  Config
+	}{
+		{"zero rate", Config{Rate: 0, Per: time.Minute}},
+		{"negative rate", Config{Rate: -1, Per: time.Minute}},
+		{"zero per", Config{Rate: 1, Per: 0}},
+		{"negative per", Config{Rate: 1, Per: -time.Minute}},
+		{"negative burst", Config{Rate: 1, Per: time.Minute, Burst: -1}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("expected New to panic on invalid config")
+				}
+			}()
+			New(TokenBucket, tc.cfg)
+		})
+	}
+}
