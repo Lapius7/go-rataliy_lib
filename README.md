@@ -14,7 +14,7 @@ HTTP rate limiting for Go, with a choice of algorithms and a drop-in
 import "github.com/Lapius7/go-rataliy_lib"
 ```
 
-A runnable example lives in [`test/`](test/) — clone the repo and `go run`
+A runnable example lives in [`example/`](example/) — clone the repo and `go run`
 it to see rate limiting, response headers, per-route rules, and the live
 dashboard in action.
 

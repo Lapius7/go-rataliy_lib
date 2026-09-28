@@ -14,7 +14,7 @@ Go向けのHTTPレート制限ライブラリ。複数のアルゴリズムか�
 import "github.com/Lapius7/go-rataliy_lib"
 ```
 
-実際に動かせるサンプルが [`test/`](test/) にあります。リポジトリをcloneして
+実際に動かせるサンプルが [`example/`](example/) にあります。リポジトリをcloneして
 `go run` すれば、レート制限・レスポンスヘッダー・ルートごとのルール・
 ライブダッシュボードをその場で確認できます。
 
