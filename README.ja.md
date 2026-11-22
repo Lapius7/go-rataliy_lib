@@ -1,14 +1,37 @@
-# go-rataliy_lib
+<div align="center">
 
-[English](README.md)
+<p align="center">
+  <img src="docs/images/banner.png" alt="Rataliy Rate Limiter" width="100%">
+</p>
 
-[![CI](https://github.com/Lapius7/go-rataliy_lib/actions/workflows/ci.yml/badge.svg)](https://github.com/Lapius7/go-rataliy_lib/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Lapius7/go-rataliy_lib.svg)](https://pkg.go.dev/github.com/Lapius7/go-rataliy_lib)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Lapius7/go-rataliy_lib)](https://goreportcard.com/report/github.com/Lapius7/go-rataliy_lib)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<p align="center"><a href="README.md">English</a> | <b>日本語</b></p>
 
-Go向けのHTTPレート制限ライブラリ。複数のアルゴリズムから選べて、`net/http`
-ミドルウェアにそのまま差し込めます。コアパッケージは依存パッケージゼロです。
+<h1 align="center">Rataliy Rate Limiter</h1>
+
+<h3 align="center">アルゴリズムを選べる、Go 向けの HTTP レート制限。</h3>
+
+<p align="center"><code>net/http</code> ミドルウェアにそのまま差し込めます。アルゴリズムは3種類で、コアパッケージは依存パッケージゼロです。</p>
+
+<p align="center">
+  <a href="https://github.com/Lapius7/go-rataliy_lib/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Lapius7/go-rataliy_lib/ci.yml?branch=main&label=CI&style=flat-square&logo=githubactions&logoColor=white"></a>
+  <a href="https://pkg.go.dev/github.com/Lapius7/go-rataliy_lib"><img alt="Go Reference" src="https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square&logo=go&logoColor=white"></a>
+  <a href="https://goreportcard.com/report/github.com/Lapius7/go-rataliy_lib"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/Lapius7/go-rataliy_lib?style=flat-square"></a>
+  <a href="go.mod"><img alt="Go" src="https://img.shields.io/github/go-mod/go-version/Lapius7/go-rataliy_lib?style=flat-square&color=00add8&logo=go&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Lapius7/go-rataliy_lib?style=flat-square&color=97ca00"></a>
+  <a href="https://github.com/Lapius7/go-rataliy_lib/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Lapius7/go-rataliy_lib?style=flat-square&color=e3b341&logo=github"></a>
+  <a href="https://github.com/Lapius7/go-rataliy_lib/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Lapius7/go-rataliy_lib?style=flat-square&color=3b82f6"></a>
+</p>
+
+<p align="center">
+  <a href="#クイックスタート">クイックスタート</a> ·
+  <a href="#アルゴリズム">アルゴリズム</a> ·
+  <a href="#既知の制約">既知の制約</a> ·
+  <a href="#faq">FAQ</a>
+</p>
+
+</div>
+
+---
 
 ```go
 import "github.com/Lapius7/go-rataliy_lib"
@@ -221,6 +244,9 @@ limiter := ratelimit.New(ratelimit.TokenBucket, ratelimit.Config{
 
 公開前に必ず読んでください。いずれもバグではありませんが、利用環境に
 よっては動作に影響する前提条件です。
+
+> [!WARNING]
+> ダッシュボードには認証がありません。また、Redis の障害時はレート制限が効かなくなります（fail open）。詳細は以下を読んでから公開してください。
 
 - **キーの種類数に上限が無い（インメモリストア）。** デフォルトストアは
   追跡する異なるキーの数に上限を設けておらず、TTLベースの掃除しか
